@@ -11,7 +11,6 @@ dotenv.config();
 
 // Port configuration (hardcoded 3000 as per environment guidelines)
 const PORT = 3000;
-const DB_FILE = path.resolve('db.json');
 
 
 // Interface Definitions
@@ -174,69 +173,56 @@ function hashPassword(password: string): string {
 // Read/Write database helper functions
 async function loadDB() {
   try {
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      const data = await kv.get<Database>('b2b_database');
-      if (data) {
-        db = data;
-      } else {
-        seedDB();
-        await kv.set('b2b_database', db);
-      }
+    const data = await kv.get<Database>('b2b_database');
+    if (data) {
+      db = data;
     } else {
-      if (fs.existsSync(DB_FILE)) {
-        const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        db = JSON.parse(raw);
-      } else {
-        seedDB();
-        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
-      }
-    }
-
-    if (!db.categories) {
-      db.categories = [
-        { id: 'cat_bakliyat', name: 'Bakliyat & Unlu Mamuller', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80' },
-        { id: 'cat_sarkuteri', name: 'Süt ve Şarküteri', image: 'https://images.unsplash.com/photo-1486299267070-8382e214434b?w=400&auto=format&fit=crop&q=80' },
-        { id: 'cat_yaglar', name: 'Sıvı Yağlar & Soslar', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&auto=format&fit=crop&q=80' },
-        { id: 'cat_konserve', name: 'Konserve & Temel Gıda', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80' }
-      ];
-      await saveDB();
-    } else {
-      let modified = false;
-      db.categories = db.categories.map(c => {
-        if (!c.image) {
-          modified = true;
-          let defaultImg = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80';
-          if (c.name.toLowerCase().includes('bakliyat') || c.name.toLowerCase().includes('unlu')) {
-            defaultImg = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80';
-          } else if (c.name.toLowerCase().includes('süt') || c.name.toLowerCase().includes('şarküteri') || c.name.toLowerCase().includes('et')) {
-            defaultImg = 'https://images.unsplash.com/photo-1486299267070-8382e214434b?w=400&auto=format&fit=crop&q=80';
-          } else if (c.name.toLowerCase().includes('yağ') || c.name.toLowerCase().includes('sos')) {
-            defaultImg = 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&auto=format&fit=crop&q=80';
-          }
-          return { ...c, image: defaultImg };
-        }
-        return c;
-      });
-      if (modified) {
-        await saveDB();
-      }
+      seedDB();
+      await kv.set('b2b_database', db);
     }
   } catch (err) {
-    console.error('Error loading DB:', err);
-    seedDB();
+    console.warn('Vercel KV is not configured or accessible. Operating in-memory:', err);
+    if (!db.companies || db.companies.length === 0) {
+      seedDB();
+    }
+  }
+
+  if (!db.categories) {
+    db.categories = [
+      { id: 'cat_bakliyat', name: 'Bakliyat & Unlu Mamuller', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80' },
+      { id: 'cat_sarkuteri', name: 'Süt ve Şarküteri', image: 'https://images.unsplash.com/photo-1486299267070-8382e214434b?w=400&auto=format&fit=crop&q=80' },
+      { id: 'cat_yaglar', name: 'Sıvı Yağlar & Soslar', image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&auto=format&fit=crop&q=80' },
+      { id: 'cat_konserve', name: 'Konserve & Temel Gıda', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80' }
+    ];
     await saveDB();
+  } else {
+    let modified = false;
+    db.categories = db.categories.map(c => {
+      if (!c.image) {
+        modified = true;
+        let defaultImg = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80';
+        if (c.name.toLowerCase().includes('bakliyat') || c.name.toLowerCase().includes('unlu')) {
+          defaultImg = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&auto=format&fit=crop&q=80';
+        } else if (c.name.toLowerCase().includes('süt') || c.name.toLowerCase().includes('şarküteri') || c.name.toLowerCase().includes('et')) {
+          defaultImg = 'https://images.unsplash.com/photo-1486299267070-8382e214434b?w=400&auto=format&fit=crop&q=80';
+        } else if (c.name.toLowerCase().includes('yağ') || c.name.toLowerCase().includes('sos')) {
+          defaultImg = 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&auto=format&fit=crop&q=80';
+        }
+        return { ...c, image: defaultImg };
+      }
+      return c;
+    });
+    if (modified) {
+      await saveDB();
+    }
   }
 }
 
 async function saveDB(changedCollection?: keyof Database, changedId?: string, isDelete: boolean = false) {
   try {
-    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-      await kv.set('b2b_database', db);
-    } else {
-      fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf-8');
-    }
+    await kv.set('b2b_database', db);
   } catch (err) {
-    console.error('Error saving DB:', err);
+    console.warn('Could not save to Vercel KV (using in-memory):', err);
   }
 }
 
