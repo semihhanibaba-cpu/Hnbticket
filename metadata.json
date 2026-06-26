@@ -1,0 +1,6 @@
+{
+  "name": "HanibabaTicket",
+  "description": "Profesyonel B2B bayi portalı. Yönetici kontrol paneli, dinamik bakiye yönetimi, sipariş takibi, ürün kataloğu ve gelişmiş raporlama özellikleri içerir.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
